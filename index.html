@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PAP Studio — Planeación Agregada de Producción</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <!-- KaTeX for clean mathematical typesetting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]});"></script>
+  <!-- jsPDF & AutoTable for direct PDF report generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="brand-group">
+      <div class="brand-logo">PAP</div>
+      <div>
+        <span class="brand-title">PAP Studio</span>
+        <span class="brand-subtitle">Planeación Agregada de Producción</span>
+      </div>
+    </div>
+
+    <nav class="main-nav" role="tablist" aria-label="Secciones del sistema">
+      <button class="nav-tab active" data-tab="workbench" type="button">
+        <span class="nav-step-badge">1</span> Plan Agregado
+      </button>
+      <button class="nav-tab" data-tab="comparison" type="button">
+        <span class="nav-step-badge">2</span> Comparador de Estrategias
+      </button>
+      <button class="nav-tab" data-tab="methodology" type="button">
+        <span class="nav-step-badge">?</span> Metodología y Modelo
+      </button>
+    </nav>
+
+    <div class="header-actions">
+      <button id="btnOpenExportExcel" class="btn btn-header" type="button" title="Exportar estrategias seleccionadas en plantilla de Excel" disabled>
+        &#8681; Exportar Excel
+      </button>
+      <button id="btnOpenExportPDF" class="btn btn-primary" type="button" title="Exportar informe ejecutivo y tablas en PDF" disabled>
+        &#8681; Exportar Informe PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <div class="app-workspace">
+
+    <!-- Hover-Expandable Left Menu Rail -->
+    <nav class="left-rail" aria-label="Menú de Gestión del Plan">
+      <span class="left-rail-title">Menú del Plan</span>
+      <button id="btnCreatePlan" class="btn btn-create-plan" type="button" title="Nuevo plan">
+        <span class="rail-icon">+</span>
+        <span class="rail-label">Nuevo plan</span>
+      </button>
+
+      <div class="rail-summary-collapsed" aria-hidden="true">
+        <div class="rail-info-icon" title="Pasa el cursor para ver el resumen del plan">&#9776;</div>
+        <span>Resumen</span>
+      </div>
+
+      <div class="rail-summary-card">
+        <span class="rail-summary-title">Resumen Plan Activo</span>
+        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;" id="railFamilyName">
+          Sin plan activo
+        </div>
+        <div class="rail-summary-item">
+          <span>Horizonte:</span>
+          <strong id="railHorizon">&mdash;</strong>
+        </div>
+        <div class="rail-summary-item">
+          <span>Plantilla inicial:</span>
+          <strong id="railInitWorkers">&mdash;</strong>
+        </div>
+        <div class="rail-summary-item">
+          <span>Mínimo en planta:</span>
+          <strong id="railMinWorkers">&mdash;</strong>
+        </div>
+        <div class="rail-summary-item">
+          <span>Máximo en planta:</span>
+          <strong id="railMaxWorkers">&mdash;</strong>
+        </div>
+        <div class="rail-summary-item">
+          <span>Stock seguridad:</span>
+          <strong id="railSafetyStock">&mdash;</strong>
+        </div>
+        <div class="rail-summary-item">
+          <span>Tope Horas Extras:</span>
+          <strong id="railMaxOt">&mdash;</strong>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Right Workspace -->
+    <main class="main-canvas">
+
+      <!-- ====================================================================
+           TAB 1: WORKBENCH PRINCIPAL (Bienvenida inicial o Plan Calculado)
+           ==================================================================== -->
+      <section id="tab-workbench" class="tab-panel active">
+
+        <!-- Pantalla de Bienvenida (Visible cuando aún no hay un plan calculado) -->
+        <div id="welcomeEmptyState" class="welcome-card">
+          <div class="welcome-header">
+            <div class="welcome-icon">PAP</div>
+            <div>
+              <h1 class="welcome-title">Bienvenido a PAP Studio</h1>
+              <p class="welcome-desc">
+                <strong>PAP Studio</strong> es una herramienta de planeación táctica diseñada para crear, simular y optimizar
+                <strong>Planes Agregados de Producción</strong> a mediano plazo (de 3 a 18 periodos). Te permite equilibrar
+                la capacidad de tu planta y la fuerza laboral frente a la demanda esperada, minimizando los costos totales
+                operativos bajo tres estrategias: <strong>Caza</strong>, <strong>Nivelado</strong> y <strong>Optimizado</strong> (Programación Lineal).
+              </p>
+            </div>
+          </div>
+
+          <div class="welcome-steps">
+            <div class="welcome-step-item">
+              <span class="welcome-step-badge">1</span>
+              <strong>Abre el formulario</strong>
+              <p>Pasa el cursor por el menú izquierdo y haz clic en <strong>+ Nuevo plan</strong> (o usa el botón de abajo).</p>
+            </div>
+            <div class="welcome-step-item">
+              <span class="welcome-step-badge">2</span>
+              <strong>Carga tus datos</strong>
+              <p>Ingresa la capacidad, los costos operativos, las políticas de planta y la demanda por periodo.</p>
+            </div>
+            <div class="welcome-step-item">
+              <span class="welcome-step-badge">3</span>
+              <strong>Calcula y exporta</strong>
+              <p>Presiona <strong>Calcular</strong> para analizar las estrategias y exportar el plan a Excel o informe PDF.</p>
+            </div>
+          </div>
+
+          <div class="welcome-actions">
+            <button id="btnWelcomeCreatePlan" class="btn btn-primary" type="button" style="padding: 10px 18px; font-size: 15.5px;">
+              + Nuevo plan
+            </button>
+          </div>
+        </div>
+
+        <!-- Resultados del Plan Calculado (Oculto hasta presionar Calcular) -->
+        <div id="planResultsView" style="display: none; flex-direction: column; gap: 18px;">
+
+          <!-- Strategy Selector Bar with Hover Tooltips & Single Edit Button -->
+        <div class="strategy-bar">
+          <div>
+            <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 6px;">
+              Seleccionar Estrategia de Planeación Activa
+            </div>
+            <div class="strategy-pills" id="strategyPillsContainer">
+              <button
+                class="strategy-pill active"
+                data-strategy="chase"
+                data-tooltip="Estrategia Caza (Persecución): Ajusta la fuerza laboral mes a mes (contratando y despidiendo eventuales) para igualar exactamente las necesidades de producción de cada periodo, respetando el mínimo de operarios en planta y evitando acumular inventario."
+                type="button">
+                <span>Caza</span>
+              </button>
+              <button
+                class="strategy-pill"
+                data-strategy="level"
+                data-tooltip="Estrategia Nivelado: Mantiene una fuerza laboral constante durante todo el horizonte (con un único ajuste de personal al inicio), absorbiendo las fluctuaciones estacionales mediante la acumulación de inventario en los meses de baja demanda."
+                type="button">
+                <span>Nivelado</span>
+              </button>
+              <button
+                class="strategy-pill optimal-pill"
+                data-strategy="optimal"
+                data-tooltip="Estrategia Optimizado (Programación Lineal): Utiliza el Método Simplex de Dos Fases para encontrar la combinación matemática exacta de operarios, horas extras, subcontratación e inventario que minimiza el costo total incremental cumpliendo todas las restricciones."
+                type="button">
+                <span>Optimizado</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button id="btnQuickEditInputs" class="btn btn-outline" type="button">
+              &#9998; Editar datos de entrada
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Strip -->
+        <div class="kpi-grid">
+          <div class="kpi-card highlight-optimal">
+            <span class="kpi-label">Costo Total Incremental</span>
+            <div class="kpi-value" id="kpiTotalCost">$0</div>
+            <div class="kpi-sub" id="kpiCostDiffBadge"></div>
+          </div>
+          <div class="kpi-card highlight-primary">
+            <span class="kpi-label">Costo Medio por Unidad</span>
+            <div class="kpi-value" id="kpiUnitCost">$0,00</div>
+            <div class="kpi-sub" id="kpiTotalUnitsSub">0 unidades producidas</div>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Variación de Personal</span>
+            <div class="kpi-value" id="kpiTurnover">0 / 0</div>
+            <div class="kpi-sub" id="kpiMinMaxWorkersSub">Mín. Planta: 100 | Máx: 180</div>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Stock Promedio / Horas Ociosas</span>
+            <div class="kpi-value" id="kpiAvgInventory">0 u.</div>
+            <div class="kpi-sub" id="kpiIdleHoursSub">Horas ociosas: 0 h</div>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Utilización Jornada Regular</span>
+            <div class="kpi-value" id="kpiUtilization">0%</div>
+            <div class="kpi-sub" id="kpiStrategyDescShort">Estrategia activa</div>
+          </div>
+        </div>
+
+        <!-- Policy Compliance Banner -->
+        <div id="policyStatusBanner" class="policy-alert-box ok">
+          <div>
+            <strong id="policyStatusTitle">&#10003; Cumplimiento Total de Políticas Operativas</strong>
+            <div id="policyStatusDetails">Todas las restricciones de mínimo en planta, stock de seguridad, horas extras y subcontratación se cumplen.</div>
+          </div>
+          <span id="policyStatusBadge" class="badge badge-success">Factible</span>
+        </div>
+
+        <!-- Master Aggregate Production Planning Matrix -->
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-title-group">
+              <div class="section-title">
+                <span>Matriz del Plan Agregado de Producción</span>
+                <span id="activeStrategyTag" class="badge badge-info">Caza</span>
+              </div>
+              <span class="section-subtitle" id="activeStrategyDescription">
+                Resultados proyectados mes a mes para la estrategia seleccionada. Para modificar los parámetros o la demanda, utiliza el botón "Editar datos de entrada" y presiona "Calcular".
+              </span>
+            </div>
+          </div>
+
+          <div class="table-scroll-container">
+            <table class="pap-table" id="masterPapTable" aria-label="Tabla del Plan Agregado de Producción">
+              <thead id="masterPapThead"></thead>
+              <tbody id="masterPapTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Visual Analytics Charts -->
+        <div class="charts-grid">
+          <div class="section-card chart-box">
+            <div class="section-title-group">
+              <div class="section-title">Balance de Producción, Necesidades e Inventario</div>
+              <span class="section-subtitle">Unidades producidas (Regular, Extra, Subcontratada) vs. Necesidad de Producción e Inventario Final</span>
+            </div>
+            <div class="chart-canvas-wrap">
+              <canvas id="balanceChartCanvas"></canvas>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-swatch" style="background:#2563EB"></span>Prod. Regular</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#D97706"></span>Jornada Extra</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#7C3AED"></span>Subcontratación</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#DC2626"></span>Necesidad Producción</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#0D9488"></span>Inventario Final</span>
+            </div>
+          </div>
+
+          <div class="section-card chart-box">
+            <div class="section-title-group">
+              <div class="section-title">Comparativa de Costos Incrementales por Estrategia</div>
+              <span class="section-subtitle">Desglose de costos operativos acumulados entre Caza, Nivelado y Optimizado</span>
+            </div>
+            <div class="chart-canvas-wrap">
+              <canvas id="costComparisonChartCanvas"></canvas>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-swatch" style="background:#2563EB"></span>Horas Regulares</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#64748B"></span>Horas Ociosas</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#D97706"></span>Horas Extras</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#7C3AED"></span>Subcontratación</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#0891B2"></span>Contrat./Despidos</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#0D9488"></span>Posesión Stock</span>
+            </div>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           TAB 2: COMPARADOR EJECUTIVO DE ESTRATEGIAS Y OPTIMIZACIÓN LP
+           ==================================================================== -->
+      <section id="tab-comparison" class="tab-panel">
+
+        <div id="comparisonEmptyState" class="welcome-card">
+          <div class="welcome-header">
+            <div class="welcome-icon" style="background: #0F172A;">2</div>
+            <div>
+              <h2 class="welcome-title" style="font-size: 20px;">Aún no hay un plan calculado para comparar</h2>
+              <p class="welcome-desc">
+                Crea y calcula un plan desde el botón <strong>+ Nuevo plan</strong> en el menú izquierdo para visualizar la matriz comparativa entre <strong>Caza</strong>, <strong>Nivelado</strong> y <strong>Optimizado</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div id="comparisonResultsView" style="display: none; flex-direction: column; gap: 18px;">
+          <div class="section-card">
+          <div class="section-header">
+            <div class="section-title-group">
+              <div class="section-title">Matriz Comparativa de Estrategias (Caza, Nivelado y Optimizado)</div>
+              <span class="section-subtitle">
+                Evaluación simultánea de los parámetros operativos y costos incrementales entre las tres estrategias.
+              </span>
+            </div>
+          </div>
+
+          <div class="table-scroll-container">
+            <table class="pap-table" id="strategyCompareTable">
+              <thead id="strategyCompareThead"></thead>
+              <tbody id="strategyCompareTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-title-group">
+              <div class="section-title">Diagnóstico Ejecutivo y Discusión de Estrategias</div>
+              <span class="section-subtitle">Síntesis comparativa generada a partir de la estructura de costos y restricciones de planta</span>
+            </div>
+          </div>
+          <div id="executiveDiagnosisBody" class="methodology-grid"></div>
+        </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           TAB 3: GUÍA METODOLÓGICA Y FORMULACIÓN MATEMÁTICA
+           ==================================================================== -->
+      <section id="tab-methodology" class="tab-panel">
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-title-group">
+              <div class="section-title">Metodología de Planeación Agregada de Producción (PAP)</div>
+              <span class="section-subtitle">Fundamentos tácticos, restricciones de plantilla fija/eventual, horas ociosas y modelo de Programación Lineal</span>
+            </div>
+          </div>
+
+          <div class="methodology-cards-4">
+            <div class="method-card">
+              <span class="method-step-num">1</span>
+              <h4>Necesidades de Producción</h4>
+              <p>
+                A partir de la previsión de ventas, los pedidos comprometidos, los pedidos pendientes de entrega y el stock de seguridad a constituir:
+              </p>
+              <div class="method-formula">
+                $$\text{Nec}_1 = \max(\text{Prev}_1,\, \text{Compr}_1) + \text{Pend}_1 + \max(0,\, SS - I_0)$$
+                $$\text{Nec}_t = \max(\text{Prev}_t,\, \text{Compr}_t) \quad (\forall\, t \ge 2)$$
+              </div>
+            </div>
+
+            <div class="method-card">
+              <span class="method-step-num">2</span>
+              <h4>Restricción de Mínimo y Máximo en Planta</h4>
+              <p>
+                El personal de planta permanente define el mínimo de operarios \(W_{\text{mín}}\) que no puede despedirse, mientras que los turnos y operarios por turno definen el máximo \(W_{\text{máx}}\):
+              </p>
+              <div class="method-formula">
+                $$W_{\text{mín}} \le W_t \le W_{\text{máx}} = \text{Turnos} \times \text{OpPorTurno}$$
+                $$W_t = W_{t-1} + H_t - L_t$$
+              </div>
+            </div>
+
+            <div class="method-card">
+              <span class="method-step-num">3</span>
+              <h4>Horas Disponibles, Trabajadas y Ociosas</h4>
+              <p>
+                Cuando la plantilla activa (por redondeo o por el piso de mínimo en planta \(W_{\text{mín}}\)) supera las horas requeridas por la producción regular, se generan horas ociosas remuneradas:
+              </p>
+              <div class="method-formula">
+                $$H^{\text{disp}}_t = W_t \cdot \text{Días}_t \cdot \text{HorasTurno}$$
+                $$H^{\text{trab}}_t = P_t \cdot \text{HorasEstándar}$$
+                $$H^{\text{oc}}_t = \max\!\left(0,\; H^{\text{disp}}_t - H^{\text{trab}}_t\right)$$
+              </div>
+            </div>
+
+            <div class="method-card">
+              <span class="method-step-num">4</span>
+              <h4>Balance de Inventario y Capacidad Extra</h4>
+              <p>
+                El inventario disponible al cierre de cada periodo resulta del inventario previo más toda la producción (normal, extra y subcontratada) menos la necesidad de producción:
+              </p>
+              <div class="method-formula">
+                $$I_t - B_t = I_{t-1} - B_{t-1} + P_t + O_t + S_t - \text{Nec}_t$$
+                $$O_t \le \alpha_{\text{HE}} \cdot \frac{H^{\text{disp}}_t}{\text{HorasEstándar}}$$
+              </div>
+            </div>
+          </div>
+
+          <div class="methodology-grid" style="padding-top: 16px;">
+            <div class="method-card" style="grid-column: 1 / -1;">
+              <span class="method-step-num">5</span>
+              <h4>Estrategias: Caza, Nivelado y Optimizado (Programación Lineal)</h4>
+              <p>
+                <strong>Caza:</strong> Ajusta \(W_t\) cada mes para cubrir la demanda sin bajar de \(W_{\text{mín}}\). &nbsp;|&nbsp;
+                <strong>Nivelado:</strong> Ajuste único al inicio manteniendo \(W_t\) constante. &nbsp;|&nbsp;
+                <strong>Optimizado:</strong> Resuelve mediante Programación Lineal (Simplex de Dos Fases) la combinación de mínimo costo total incremental:
+              </p>
+              <div class="method-formula">
+                $$\min Z = \sum_{t=1}^{T} \Big( c_{\text{reg}}\, H^{\text{trab}}_t + c_{\text{oc}}\, H^{\text{oc}}_t + c_{\text{ext}}\, H^{\text{ext}}_t + c_S\, S_t + c_H\, H_t + c_L\, L_t + c_I\, I_t + c_B\, B_t \Big)$$
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección de Notación y Variables Empleadas -->
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-title-group">
+              <div class="section-title">Glosario de Variables y Parámetros Empleados</div>
+              <span class="section-subtitle">Definición de las variables de decisión, parámetros operativos, restricciones y coeficientes de costo del modelo</span>
+            </div>
+          </div>
+
+          <div class="variables-grid">
+            <div class="method-card" style="padding: 0; overflow: hidden;">
+              <div style="padding: 12px 14px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle); font-weight: 700; font-size: 15px;">
+                Variables de Decisión y Estado (por periodo \(t\))
+              </div>
+              <table class="vars-table">
+                <thead>
+                  <tr><th>Símbolo</th><th>Significado</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>\(W_t\)</td><td>Fuerza laboral activa (operarios) en el periodo \(t\).</td></tr>
+                  <tr><td>\(H_t,\; L_t\)</td><td>Operarios contratados (\(H_t\)) y despedidos (\(L_t\)) al inicio de \(t\).</td></tr>
+                  <tr><td>\(P_t\)</td><td>Unidades producidas en jornada normal (tiempo regular) en \(t\).</td></tr>
+                  <tr><td>\(O_t\)</td><td>Unidades producidas en jornada extraordinaria (horas extras) en \(t\).</td></tr>
+                  <tr><td>\(S_t\)</td><td>Unidades subcontratadas externamente en el periodo \(t\).</td></tr>
+                  <tr><td>\(I_t,\; B_t\)</td><td>Inventario final disponible (\(I_t\)) y faltantes o pedidos atrasados (\(B_t\)) al cierre de \(t\).</td></tr>
+                  <tr><td>\(H^{\text{disp}}_t\)</td><td>Horas hombre regulares disponibles según plantilla y días hábiles.</td></tr>
+                  <tr><td>\(H^{\text{trab}}_t,\; H^{\text{oc}}_t\)</td><td>Horas regulares efectivamente trabajadas (\(H^{\text{trab}}_t\)) y horas ociosas (\(H^{\text{oc}}_t\)).</td></tr>
+                  <tr><td>\(H^{\text{ext}}_t\)</td><td>Horas extraordinarias realizadas en \(t\) (\(O_t \cdot \text{HorasEstándar}\)).</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="method-card" style="padding: 0; overflow: hidden;">
+              <div style="padding: 12px 14px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle); font-weight: 700; font-size: 15px;">
+                Parámetros de Demanda, Capacidad y Políticas
+              </div>
+              <table class="vars-table">
+                <thead>
+                  <tr><th>Símbolo</th><th>Significado</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>\(T\)</td><td>Horizonte total de planeación (de 3 a 18 periodos).</td></tr>
+                  <tr><td>\(\text{Prev}_t,\; \text{Compr}_t\)</td><td>Previsión de ventas y pedidos comprometidos para el periodo \(t\).</td></tr>
+                  <tr><td>\(\text{Pend}_1\)</td><td>Pedidos pendientes de entrega acumulados para el periodo inicial.</td></tr>
+                  <tr><td>\(\text{Nec}_t\)</td><td>Necesidad neta de producción del periodo \(t\).</td></tr>
+                  <tr><td>\(SS,\; I_0\)</td><td>Stock de seguridad requerido (\(SS\)) e inventario inicial (\(I_0\)).</td></tr>
+                  <tr><td>\(W_{\text{mín}},\; W_{\text{máx}}\)</td><td>Mínimo de operarios en planta (personal fijo) y máximo según turnos.</td></tr>
+                  <tr><td>\(\alpha_{\text{HE}}\)</td><td>Porcentaje máximo de horas extraordinarias permitidas sobre la jornada normal.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="method-card" style="padding: 0; overflow: hidden;">
+              <div style="padding: 12px 14px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle); font-weight: 700; font-size: 15px;">
+                Coeficientes de Costo Incremental
+              </div>
+              <table class="vars-table">
+                <thead>
+                  <tr><th>Símbolo</th><th>Significado</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>\(c_{\text{reg}},\; c_{\text{oc}}\)</td><td>Costo por hora de mano de obra regular trabajada y por hora ociosa.</td></tr>
+                  <tr><td>\(c_{\text{ext}}\)</td><td>Costo por hora extraordinaria de mano de obra.</td></tr>
+                  <tr><td>\(c_S\)</td><td>Costo unitario de subcontratación por unidad de familia.</td></tr>
+                  <tr><td>\(c_H,\; c_L\)</td><td>Costo de contratación (\(c_H\)) y de despido (\(c_L\)) por operario.</td></tr>
+                  <tr><td>\(c_I\)</td><td>Costo de posesión/mantenimiento en inventario por unidad y periodo.</td></tr>
+                  <tr><td>\(c_B\)</td><td>Costo por servicio con retraso (faltante) por unidad y periodo.</td></tr>
+                  <tr><td>\(Z\)</td><td>Costo total incremental del plan en todo el horizonte.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Diálogo Modal para Nuevo Plan / Editar Datos de Entrada -->
+  <div id="planModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="drawerFormTitle">
+    <div class="plan-modal" id="paramsSidebar">
+      <div class="modal-header">
+        <span class="modal-title" id="drawerFormTitle">+ Nuevo Plan Agregado</span>
+        <button id="btnCloseDrawer" class="btn btn-outline btn-sm" type="button" title="Cerrar formulario">&times; Cerrar</button>
+      </div>
+
+      <div class="plan-modal-body">
+        <div id="dirtyIndicator" class="dirty-indicator">
+          Hay cambios en los datos de entrada. Presiona <strong>"Calcular"</strong> abajo para procesar y mostrar el plan.
+        </div>
+
+        <div class="plan-form-grid">
+          <!-- 1. Horizonte Temporal y Familia -->
+          <details class="param-accordion" open>
+            <summary>
+              <span>1. Horizonte y Familia</span>
+              <span id="badgeHorizon" class="summary-badge">12 Meses</span>
+            </summary>
+            <div class="param-body">
+              <div class="field-group">
+                <label class="field-label" for="familyNameInput">Familia de Productos Agregada</label>
+                <input type="text" id="familyNameInput" value="Familia TP Investigación N° 2 (FI - U.Na.M.)" />
+              </div>
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="periodUnitSelect">Bloque de Tiempo</label>
+                  <select id="periodUnitSelect">
+                    <option value="month">Meses</option>
+                    <option value="quarter">Trimestres</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="horizonLengthInput">N.º de Periodos (3 a 18)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="horizonLengthInput" min="3" max="18" step="1" value="12" />
+                    <span class="unit-tag">per.</span>
+                  </div>
+                </div>
+              </div>
+              <div class="field-group">
+                <label class="field-label" for="aggregateUnitInput">Unidad Agregada de Medida</label>
+                <input type="text" id="aggregateUnitInput" value="Unidades" />
+              </div>
+            </div>
+          </details>
+
+          <!-- 2. Capacidad Actual y Productividad -->
+          <details class="param-accordion" open>
+            <summary>
+              <span>2. Capacidad y Fuerza Laboral</span>
+              <span id="badgeProductivity" class="summary-badge">69,6 u/op</span>
+            </summary>
+            <div class="param-body">
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="initialWorkersInput">Plantilla Inicial Total (W<sub>0</sub>)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="initialWorkersInput" min="0" step="1" value="180" />
+                    <span class="unit-tag">oper.</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="hoursPerShiftInput">Jornada Laboral</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="hoursPerShiftInput" min="1" max="24" step="0.5" value="8" />
+                    <span class="unit-tag">h/día</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="shiftsPerDayInput">Cantidad de Turnos</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="shiftsPerDayInput" min="1" max="6" step="1" value="3" />
+                    <span class="unit-tag">turnos</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="workersPerShiftInput">Operarios / Turno</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="workersPerShiftInput" min="0" step="1" value="60" />
+                    <span class="unit-tag">op/t</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="hoursPerUnitInput">Horas Estándar / Ítem</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="hoursPerUnitInput" min="0.05" step="0.1" value="2.3" />
+                    <span class="unit-tag">h.e/u</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="initialInventoryInput">Inventario Inicial (I<sub>0</sub>)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="initialInventoryInput" min="0" step="10" value="0" />
+                    <span class="unit-tag">unid.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="targetEndingInventoryInput">Stock Disponible Final Meta (I<sub>T</sub>)</label>
+                <div class="input-with-unit">
+                  <input type="number" id="targetEndingInventoryInput" min="0" step="10" value="0" />
+                  <span class="unit-tag">unid.</span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- 3. Costos Operativos -->
+          <details class="param-accordion" open>
+            <summary>
+              <span>3. Costos Operativos</span>
+              <span id="badgeCostMode" class="summary-badge">U.M. / Hora</span>
+            </summary>
+            <div class="param-body">
+              <div class="field-group">
+                <label class="field-label" for="costInputModeSelect">Modo de Costo de Mano de Obra</label>
+                <select id="costInputModeSelect">
+                  <option value="hourly">Por Hora Estándar ($/h &times; h.e/unidad)</option>
+                  <option value="unit">Directo por Unidad Producida ($/unidad)</option>
+                </select>
+              </div>
+
+              <div id="hourlyCostFields" class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="regularHourlyCostInput">Hora MO Regular</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="regularHourlyCostInput" min="0" step="0.5" value="4" />
+                    <span class="unit-tag">$/h</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="overtimeHourlyCostInput">Hora MO Extra</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="overtimeHourlyCostInput" min="0" step="0.5" value="6" />
+                    <span class="unit-tag">$/h</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="unitCostFields" class="field-grid-2" style="display: none;">
+                <div class="field-group">
+                  <label class="field-label" for="regularUnitCostInput">Tiempo Normal</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="regularUnitCostInput" min="0" step="1" value="9.2" />
+                    <span class="unit-tag">$/u.</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="overtimeUnitCostInput">Tiempo Extra</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="overtimeUnitCostInput" min="0" step="1" value="13.8" />
+                    <span class="unit-tag">$/u.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="idleHourlyCostInput">Hora Ociosa MO</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="idleHourlyCostInput" min="0" step="0.5" value="4" />
+                    <span class="unit-tag">$/h</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="subcontractUnitCostInput">Subcontratación</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="subcontractUnitCostInput" min="0" step="1" value="7" />
+                    <span class="unit-tag">$/u.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="hiringCostInput">Contratar (RRHH)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="hiringCostInput" min="0" step="100" value="5000" />
+                    <span class="unit-tag">$/op</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="layoffCostInput">Despedir Eventual</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="layoffCostInput" min="0" step="100" value="8000" />
+                    <span class="unit-tag">$/op</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="holdingCostInput">Posesión en Stock</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="holdingCostInput" min="0" step="0.5" value="6" />
+                    <span class="unit-tag">$/u&middot;m</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="backorderCostInput">Servicio c/ Retraso</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="backorderCostInput" min="0" step="1" value="25" />
+                    <span class="unit-tag">$/u&middot;m</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <!-- 4. Políticas y Restricciones de la Empresa -->
+          <details class="param-accordion" open>
+            <summary>
+              <span>4. Restricciones y Políticas de la Empresa</span>
+              <span class="summary-badge">Reglas</span>
+            </summary>
+            <div class="param-body">
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="minWorkersInput" title="Restricción de trabajadores mínimos en planta (Personal de planta permanente que no puede ser despedido)">Mínimo en Planta (W<sub>mín</sub>)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="minWorkersInput" min="0" step="1" value="100" />
+                    <span class="unit-tag">oper.</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="maxWorkersInput" title="Tope máximo de operarios en planta (Turnos x Operarios/Turno)">Máximo en Planta (W<sub>máx</sub>)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="maxWorkersInput" min="0" step="1" value="180" />
+                    <span class="unit-tag">oper.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="safetyStockModeSelect">Stock de Seguridad</label>
+                  <select id="safetyStockModeSelect">
+                    <option value="units">Unidades Fijas</option>
+                    <option value="percent">% de la Demanda</option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="safetyStockValueInput">Valor Stock Seg.</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="safetyStockValueInput" min="0" step="10" value="250" />
+                    <span id="safetyStockUnitTag" class="unit-tag">unid.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-grid-2">
+                <div class="field-group">
+                  <label class="field-label" for="maxOvertimePercentInput">Tope Horas Extras</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="maxOvertimePercentInput" min="0" max="100" step="1" value="10" />
+                    <span class="unit-tag">% jorn.</span>
+                  </div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" for="maxSubcontractUnitsInput">Máx. Subcontrat. (0=&infin;)</label>
+                  <div class="input-with-unit">
+                    <input type="number" id="maxSubcontractUnitsInput" min="0" step="50" value="0" />
+                    <span class="unit-tag">u/per</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="machineCapacityInput">Capacidad Máx. Máquinas (0 = Sin límite)</label>
+                <div class="input-with-unit">
+                  <input type="number" id="machineCapacityInput" min="0" step="50" value="0" />
+                  <span class="unit-tag">u/per</span>
+                </div>
+              </div>
+
+              <label class="checkbox-row">
+                <input type="checkbox" id="integerWorkersCheck" checked />
+                <span>Exigir número entero de operarios</span>
+              </label>
+
+              <label class="checkbox-row">
+                <input type="checkbox" id="regularPayrollFixedCheck" checked />
+                <span>Contabilizar costo de horas ociosas en jornada regular</span>
+              </label>
+
+              <label class="checkbox-row">
+                <input type="checkbox" id="allowBackordersCheck" />
+                <span>Permitir servicio con retraso (faltantes entre meses)</span>
+              </label>
+
+              <label class="checkbox-row">
+                <input type="checkbox" id="globalNoLayoffsCheck" />
+                <span>Prohibir despidos en todo el horizonte</span>
+              </label>
+            </div>
+          </details>
+
+          <!-- 5. Pronóstico de Demanda y Días Productivos por Periodo (Ancho completo) -->
+          <details class="param-accordion plan-form-full" open>
+            <summary>
+              <span>5. Demanda y Días por Periodo</span>
+              <span class="summary-badge">Tabla de Entrada</span>
+            </summary>
+            <div class="param-body" style="padding: 8px;">
+              <table class="form-periods-table" id="formPeriodsTable">
+                <thead>
+                  <tr>
+                    <th style="text-align:left;">Per.</th>
+                    <th>Días</th>
+                    <th>Previsión</th>
+                    <th>Comprom.</th>
+                    <th>Pendiente</th>
+                  </tr>
+                </thead>
+                <tbody id="formPeriodsTbody"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="plan-modal-footer">
+        <button id="btnRestoreFacultyPreset" class="btn btn-outline" type="button" title="Restaurar datos del caso de la facultad">
+          Cargar Caso Facultad
+        </button>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button id="btnCancelPlanModal" class="btn btn-outline" type="button">Cancelar</button>
+          <button id="btnCalculatePlan" class="btn-calculate" type="button">
+            &#9654; Calcular
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Multiselección de Estrategias para Exportar a Excel o Informe PDF -->
+  <div id="exportModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div class="export-modal">
+      <div class="modal-header">
+        <span class="modal-title" id="exportModalTitle">Exportar Plan Agregado de Producción</span>
+        <button id="btnCloseExportModal" class="btn btn-outline btn-sm" type="button">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label" for="exportFormatSelect">Formato de Exportación</label>
+          <select id="exportFormatSelect">
+            <option value="excel">Plantilla de Excel (.xls con formato de cátedra)</option>
+            <option value="pdf">Informe Ejecutivo y Tablas en PDF (.pdf)</option>
+          </select>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="field-label" style="font-weight:600; color:var(--text-primary);">
+            Selecciona las estrategias a incluir (Multiselección):
+          </span>
+          <button id="btnSelectAllStrategies" class="btn btn-outline btn-sm" type="button">Seleccionar todas</button>
+        </div>
+
+        <div class="strategy-check-list">
+          <label class="strategy-check-item">
+            <input type="checkbox" class="export-strategy-check" value="chase" checked />
+            <div class="strategy-check-info">
+              <strong>Caza</strong>
+              <span>Ajusta la fuerza laboral mes a mes respetando el mínimo en planta sin acumular inventario.</span>
+            </div>
+          </label>
+          <label class="strategy-check-item">
+            <input type="checkbox" class="export-strategy-check" value="level" checked />
+            <div class="strategy-check-info">
+              <strong>Nivelado</strong>
+              <span>Mantiene una plantilla constante todo el horizonte absorbiendo variaciones con stock.</span>
+            </div>
+          </label>
+          <label class="strategy-check-item">
+            <input type="checkbox" class="export-strategy-check" value="optimal" checked />
+            <div class="strategy-check-info">
+              <strong>Optimizado</strong>
+              <span>Combinación óptima mediante Programación Lineal (Simplex) de mínimo costo total incremental.</span>
+            </div>
+          </label>
+        </div>
+
+        <div id="exportValidationError" style="display:none; font-size:14px; color:var(--accent-danger); font-weight:600;">
+          Por favor, selecciona al menos una estrategia para exportar.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnCancelExportModal" class="btn btn-outline" type="button">Cancelar</button>
+        <button id="btnConfirmExport" class="btn btn-primary" type="button">&#8681; Descargar Archivo</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="solver.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
