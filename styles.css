@@ -1181,7 +1181,7 @@ html, body {
 /* Guide / Methodology Cards */
 .methodology-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
   gap: 16px;
   padding: 18px;
 }
@@ -1255,7 +1255,7 @@ html, body {
 
 .variables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
   gap: 16px;
   padding: 18px;
 }
@@ -1401,6 +1401,22 @@ html, body {
 }
 
 @media (max-width: 920px) {
+  .app-header {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    gap: 10px;
+  }
+  .main-nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-tab {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
   .app-workspace {
     flex-direction: column;
   }
@@ -1428,5 +1444,112 @@ html, body {
   }
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .brand-group {
+    gap: 8px;
+  }
+  .brand-subtitle {
+    display: none;
+  }
+  .header-actions {
+    gap: 6px;
+  }
+  .header-actions .btn {
+    padding: 6px 9px;
+    font-size: 13px;
+  }
+  .nav-tab {
+    padding: 6px 8px;
+    font-size: 13px;
+    gap: 5px;
+  }
+  .main-canvas {
+    padding: 12px 10px 28px;
+    gap: 14px;
+  }
+  .welcome-card {
+    padding: 20px 16px;
+  }
+  .strategy-bar {
+    padding: 10px 12px;
+  }
+  .strategy-pills {
+    width: 100%;
+  }
+  .strategy-pill {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 13.5px;
+  }
+  .strategy-pill[data-tooltip]::after,
+  .strategy-pill[data-tooltip]::before {
+    display: none;
+  }
+  .kpi-grid {
+    gap: 8px;
+  }
+  .kpi-card {
+    padding: 10px 12px;
+  }
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+  .pap-table th,
+  .pap-table td {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .pap-table th:first-child,
+  .pap-table td:first-child {
+    min-width: 145px;
+    max-width: 165px;
+    white-space: normal;
+    line-height: 1.25;
+  }
+  .chart-box {
+    padding: 12px;
+  }
+  .chart-canvas-wrap {
+    height: 220px;
+  }
+  .field-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .modal-backdrop {
+    padding: 8px;
+  }
+  .plan-modal {
+    max-height: 94vh;
+  }
+  .plan-modal-body {
+    padding: 12px 14px;
+  }
+  .plan-modal-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    padding: 12px 14px;
+  }
+  .btn-calculate {
+    width: 100%;
+  }
+  .methodology-grid,
+  .methodology-cards-4,
+  .variables-grid {
+    padding: 12px;
+  }
+  .vars-table th,
+  .vars-table td {
+    padding: 6px 8px;
+    font-size: 13px;
   }
 }
